@@ -9,12 +9,13 @@ import voluptuous as vol
 from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.remote import DOMAIN as REMOTE_DOMAIN
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.const import CONF_HOST
+from homeassistant.const import ATTR_NAME, CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
     ATTR_IDENTIFIERS,
@@ -54,14 +55,15 @@ async def async_setup(hass: HomeAssistant, config: Dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Roku from a config entry."""
-    try:
-        session = async_get_clientsession(hass)
-        roku = Roku(entry.data[CONF_HOST], session=session)
-        await roku.update()
-    except RokuError as wrror:
-        raise ConfigEntryNotReady from error
+    coordinator = RokuDataUpdateCoordinator(
+        hass, host=entry.data[CONF_HOST]
+    )
+    await coordinator.async_refresh()
 
-    hass.data[DOMAIN][entry.entry_id] = roku
+    if not coordinator.last_update_success:
+        raise ConfigEntryNotReady
+
+    hass.data[DOMAIN][entry.entry_id] = coordinator
 
     for component in PLATFORMS:
         hass.async_create_task(
@@ -88,14 +90,46 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
+class RokuDataUpdateCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching Roku data."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        *,
+        host: str,
+    ):
+        """Initialize global Roku data updater."""
+        self.roku = Roku(
+            host=host,
+            session=async_get_clientsession(hass, verify_ssl),
+        )
+
+        super().__init__(
+            hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL,
+        )
+
+    async def _async_update_data(self) -> IPPPrinter:
+        """Fetch data from Roku."""
+        try:
+            return await self.roku.update()
+        except RokuError as error:
+            raise UpdateFailed(f"Invalid response from API: {error}")
+
+
 class RokuEntity(Entity):
     """Defines a base Roku entity."""
 
-    def __init__(self, *, device_id: str, name: str, roku: Roku) -> None:
+    def __init__(self, *, device_id: str, name: str, coordinator: RokuDataUpdateCoordinator) -> None:
         """Initialize the Roku entity."""
         self._device_id = device_id
         self._name = name
-        self.roku = roku
+        self.coordinator = coordinator
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success
 
     @property
     def name(self) -> str:
@@ -103,12 +137,30 @@ class RokuEntity(Entity):
         return self._name
 
     @property
+    def should_poll(self) -> bool:
+        """Return the polling requirement of the entity."""
+        return False
+
+    async def async_added_to_hass(self) -> None:
+        """Connect to dispatcher listening for entity data notifications."""
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
+    async def async_update(self) -> None:
+        """Update an Roku entity."""
+        await self.coordinator.async_request_refresh()
+
+    @property
     def device_info(self) -> Dict[str, Any]:
         """Return device information about this Roku device."""
+        if self._device_id is None:
+            return None
+
         return {
             ATTR_IDENTIFIERS: {(DOMAIN, self._device_id)},
             ATTR_NAME: self.name,
-            ATTR_MANUFACTURER: self.roku.device.info.brand,
-            ATTR_MODEL: self.roku.device.info.model_name,
-            ATTR_SOFTWARE_VERSION: self.roku.device.info.version,
+            ATTR_MANUFACTURER: self.coordinator.data.info.brand,
+            ATTR_MODEL: self.coordinator.data.info.model_name,
+            ATTR_SOFTWARE_VERSION: self.coordinator.data.info.version,
         }
