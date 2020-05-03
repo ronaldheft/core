@@ -30,13 +30,14 @@ from tests.components.roku import (
     mock_connection,
     setup_integration,
 )
+from tests.test_util.aiohttp import AiohttpClientMocker
 
 
-async def test_duplicate_error(hass: HomeAssistantType, requests_mock: Mocker) -> None:
+async def test_duplicate_error(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
     """Test that errors are shown when duplicates are added."""
-    await setup_integration(hass, requests_mock, skip_entry_setup=True)
+    await setup_integration(hass, aioclient_mock, skip_entry_setup=True)
 
-    mock_connection(requests_mock)
+    mock_connection(aioclient_mock)
 
     user_input = {CONF_HOST: HOST}
     result = await hass.config_entries.flow.async_init(
@@ -67,11 +68,11 @@ async def test_duplicate_error(hass: HomeAssistantType, requests_mock: Mocker) -
     assert result["reason"] == "already_configured"
 
 
-async def test_form(hass: HomeAssistantType, requests_mock: Mocker) -> None:
+async def test_form(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
     """Test the user step."""
     await async_setup_component(hass, "persistent_notification", {})
 
-    mock_connection(requests_mock)
+    mock_connection(aioclient_mock)
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={CONF_SOURCE: SOURCE_USER}
@@ -186,9 +187,9 @@ async def test_form_unknown_error(hass: HomeAssistantType) -> None:
     assert len(mock_validate_input.mock_calls) == 1
 
 
-async def test_import(hass: HomeAssistantType, requests_mock: Mocker) -> None:
+async def test_import(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
     """Test the import step."""
-    mock_connection(requests_mock)
+    mock_connection(aioclient_mock)
 
     user_input = {CONF_HOST: HOST}
     with patch(
@@ -211,9 +212,9 @@ async def test_import(hass: HomeAssistantType, requests_mock: Mocker) -> None:
     assert len(mock_setup_entry.mock_calls) == 1
 
 
-async def test_ssdp_discovery(hass: HomeAssistantType, requests_mock: Mocker) -> None:
+async def test_ssdp_discovery(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
     """Test the ssdp discovery step."""
-    mock_connection(requests_mock)
+    mock_connection(aioclient_mock)
 
     discovery_info = {
         ATTR_SSDP_LOCATION: SSDP_LOCATION,
