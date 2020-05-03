@@ -18,7 +18,7 @@ async def test_config_entry_not_ready(
     hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
 ) -> None:
     """Test the Roku configuration entry not ready."""
-    entry = await setup_integration(hass, aioclient_mock, setup_error=True)
+    entry = await setup_integration(hass, aioclient_mock, error=True)
 
     assert entry.state == ENTRY_STATE_SETUP_RETRY
 
