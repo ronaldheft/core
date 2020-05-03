@@ -1,9 +1,5 @@
 """Test the Roku config flow."""
-from socket import gaierror as SocketGIAError
-
-from requests.exceptions import RequestException
-from requests_mock import Mocker
-from roku import RokuException
+from rokuecp import RokuError
 
 from homeassistant.components.roku.const import DOMAIN
 from homeassistant.components.ssdp import (
@@ -24,6 +20,7 @@ from homeassistant.setup import async_setup_component
 from tests.async_mock import patch
 from tests.components.roku import (
     HOST,
+    MOCK_SSDP_DISCOVERY_INFO,
     SSDP_LOCATION,
     UPNP_FRIENDLY_NAME,
     UPNP_SERIAL,
@@ -109,54 +106,10 @@ async def test_form_cannot_connect(hass: HomeAssistantType) -> None:
 
     with patch(
         "homeassistant.components.roku.config_flow.Roku._call",
-        side_effect=RokuException,
+        side_effect=RokuError,
     ) as mock_validate_input:
         result = await hass.config_entries.flow.async_configure(
             flow_id=result["flow_id"], user_input={CONF_HOST: HOST}
-        )
-
-    assert result["type"] == RESULT_TYPE_FORM
-    assert result["errors"] == {"base": "cannot_connect"}
-
-    await hass.async_block_till_done()
-    assert len(mock_validate_input.mock_calls) == 1
-
-
-async def test_form_cannot_connect_request(hass: HomeAssistantType) -> None:
-    """Test we handle cannot connect request error."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={CONF_SOURCE: SOURCE_USER}
-    )
-
-    user_input = {CONF_HOST: HOST}
-    with patch(
-        "homeassistant.components.roku.config_flow.Roku._call",
-        side_effect=RequestException,
-    ) as mock_validate_input:
-        result = await hass.config_entries.flow.async_configure(
-            flow_id=result["flow_id"], user_input=user_input
-        )
-
-    assert result["type"] == RESULT_TYPE_FORM
-    assert result["errors"] == {"base": "cannot_connect"}
-
-    await hass.async_block_till_done()
-    assert len(mock_validate_input.mock_calls) == 1
-
-
-async def test_form_cannot_connect_socket(hass: HomeAssistantType) -> None:
-    """Test we handle cannot connect socket error."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={CONF_SOURCE: SOURCE_USER}
-    )
-
-    user_input = {CONF_HOST: HOST}
-    with patch(
-        "homeassistant.components.roku.config_flow.Roku._call",
-        side_effect=SocketGIAError,
-    ) as mock_validate_input:
-        result = await hass.config_entries.flow.async_configure(
-            flow_id=result["flow_id"], user_input=user_input
         )
 
     assert result["type"] == RESULT_TYPE_FORM
@@ -212,15 +165,43 @@ async def test_import(hass: HomeAssistantType, aioclient_mock: AiohttpClientMock
     assert len(mock_setup_entry.mock_calls) == 1
 
 
+async def test_ssdp_cannot_connect(
+    hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Test we abort SSDP flow on connection error."""
+    mock_connection(aioclient_mock, error=True)
+    
+    discovery_info = MOCK_SSDP_DISCOVERY_INFO.copy()
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={CONF_SOURCE: SOURCE_SSDP}, data=discovery_info,
+    )
+
+    assert result["type"] == RESULT_TYPE_ABORT
+    assert result["reason"] == "cannot_connect"
+
+
+async def test_ssdp_unknown_error(
+    hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Test we abort SSDP flow on unknown error."""
+    discovery_info = MOCK_SSDP_DISCOVERY_INFO.copy()
+    with patch(
+        "homeassistant.components.roku.config_flow.Roku.update",
+        side_effect=Exception,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={CONF_SOURCE: SOURCE_SSDP}, data=discovery_info,
+        )
+
+    assert result["type"] == RESULT_TYPE_ABORT
+    assert result["reason"] == "unknown"
+
+
 async def test_ssdp_discovery(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
-    """Test the ssdp discovery step."""
+    """Test the SSDP discovery flow."""
     mock_connection(aioclient_mock)
 
-    discovery_info = {
-        ATTR_SSDP_LOCATION: SSDP_LOCATION,
-        ATTR_UPNP_FRIENDLY_NAME: UPNP_FRIENDLY_NAME,
-        ATTR_UPNP_SERIAL: UPNP_SERIAL,
-    }
+    discovery_info = MOCK_SSDP_DISCOVERY_INFO.copy()
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={CONF_SOURCE: SOURCE_SSDP}, data=discovery_info
     )
