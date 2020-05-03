@@ -30,10 +30,11 @@ from tests.components.roku import (
 from tests.test_util.aiohttp import AiohttpClientMocker
 
 
-async def test_duplicate_error(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
+async def test_duplicate_error(
+    hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
+) -> None:
     """Test that errors are shown when duplicates are added."""
     await setup_integration(hass, aioclient_mock, skip_entry_setup=True)
-
     mock_connection(aioclient_mock)
 
     user_input = {CONF_HOST: HOST}
@@ -52,11 +53,7 @@ async def test_duplicate_error(hass: HomeAssistantType, aioclient_mock: AiohttpC
     assert result["type"] == RESULT_TYPE_ABORT
     assert result["reason"] == "already_configured"
 
-    discovery_info = {
-        ATTR_UPNP_FRIENDLY_NAME: UPNP_FRIENDLY_NAME,
-        ATTR_SSDP_LOCATION: SSDP_LOCATION,
-        ATTR_UPNP_SERIAL: UPNP_SERIAL,
-    }
+    discovery_info = MOCK_SSDP_DISCOVERY_INFO.copy()
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={CONF_SOURCE: SOURCE_SSDP}, data=discovery_info
     )
@@ -65,10 +62,11 @@ async def test_duplicate_error(hass: HomeAssistantType, aioclient_mock: AiohttpC
     assert result["reason"] == "already_configured"
 
 
-async def test_form(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
+async def test_form(
+    hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
+) -> None:
     """Test the user step."""
     await async_setup_component(hass, "persistent_notification", {})
-
     mock_connection(aioclient_mock)
 
     result = await hass.config_entries.flow.async_init(
@@ -98,25 +96,22 @@ async def test_form(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
     assert len(mock_setup_entry.mock_calls) == 1
 
 
-async def test_form_cannot_connect(hass: HomeAssistantType) -> None:
+async def test_form_cannot_connect(
+    hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
+) -> None:
     """Test we handle cannot connect roku error."""
+    mock_connection(aioclient_mock, error=True)
+    
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={CONF_SOURCE: SOURCE_USER}
     )
 
-    with patch(
-        "homeassistant.components.roku.config_flow.Roku.update",
-        side_effect=RokuError,
-    ) as mock_validate_input:
-        result = await hass.config_entries.flow.async_configure(
-            flow_id=result["flow_id"], user_input={CONF_HOST: HOST}
-        )
+    result = await hass.config_entries.flow.async_configure(
+        flow_id=result["flow_id"], user_input={CONF_HOST: HOST}
+    )
 
     assert result["type"] == RESULT_TYPE_FORM
     assert result["errors"] == {"base": "cannot_connect"}
-
-    await hass.async_block_till_done()
-    assert len(mock_validate_input.mock_calls) == 1
 
 
 async def test_form_unknown_error(hass: HomeAssistantType) -> None:
@@ -140,7 +135,9 @@ async def test_form_unknown_error(hass: HomeAssistantType) -> None:
     assert len(mock_validate_input.mock_calls) == 1
 
 
-async def test_import(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
+async def test_import(
+    hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
+) -> None:
     """Test the import step."""
     mock_connection(aioclient_mock)
 
@@ -197,7 +194,9 @@ async def test_ssdp_unknown_error(
     assert result["reason"] == "unknown"
 
 
-async def test_ssdp_discovery(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
+async def test_ssdp_discovery(
+    hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker
+) -> None:
     """Test the SSDP discovery flow."""
     mock_connection(aioclient_mock)
 
