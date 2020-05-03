@@ -155,7 +155,9 @@ async def setup_integration(
     app: str = "roku",
     host: str = HOST,
     unique_id: str = UPNP_SERIAL,
+    error: bool = False,
     power: bool = True,
+    server_error: bool = False,
     skip_entry_setup: bool = False,
 ) -> MockConfigEntry:
     """Set up the Roku integration in Home Assistant."""
@@ -164,7 +166,15 @@ async def setup_integration(
     entry.add_to_hass(hass)
 
     if not skip_entry_setup:
-        mock_connection(aioclient_mock, device, app=app, host=host, power=power)
+        mock_connection(
+            aioclient_mock,
+            device,
+            app=app,
+            host=host,
+            error=error,
+            power=power,
+            server_error=server_error,
+        )
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
