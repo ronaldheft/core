@@ -1,11 +1,9 @@
 """Support for Roku."""
 import asyncio
 from datetime import timedelta
-from socket import gaierror as SocketGIAError
 from typing import Dict
 
-from requests.exceptions import RequestException
-from roku import Roku, RokuException
+from rokuecp import Roku, RokuError
 import voluptuous as vol
 
 from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
@@ -15,8 +13,18 @@ from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.entity import Entity
 
-from .const import DATA_CLIENT, DATA_DEVICE_INFO, DOMAIN
+from .const import (
+    ATTR_IDENTIFIERS,
+    ATTR_MANUFACTURER,
+    ATTR_MODEL,
+    ATTR_SOFTWARE_VERSION,
+    DATA_CLIENT,
+    DATA_DEVICE_INFO,
+    DOMAIN,
+)
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -29,17 +37,6 @@ CONFIG_SCHEMA = vol.Schema(
 
 PLATFORMS = [MEDIA_PLAYER_DOMAIN, REMOTE_DOMAIN]
 SCAN_INTERVAL = timedelta(seconds=30)
-
-
-def get_roku_data(host: str) -> dict:
-    """Retrieve a Roku instance and version info for the device."""
-    roku = Roku(host)
-    roku_device_info = roku.device_info
-
-    return {
-        DATA_CLIENT: roku,
-        DATA_DEVICE_INFO: roku_device_info,
-    }
 
 
 async def async_setup(hass: HomeAssistant, config: Dict) -> bool:
@@ -60,11 +57,15 @@ async def async_setup(hass: HomeAssistant, config: Dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Roku from a config entry."""
     try:
-        roku_data = await hass.async_add_executor_job(
-            get_roku_data, entry.data[CONF_HOST],
-        )
-    except (SocketGIAError, RequestException, RokuException) as exception:
-        raise ConfigEntryNotReady from exception
+        session = async_get_clientsession(hass)
+        roku.= Roku(hentry.data[CONF_HOST], session=session)
+        await roku.update()
+        roku_data = {
+            DATA_CLIENT: roku,
+            DATA_DEVICE_INFO: None,
+        }
+    except RokuError as wrror:
+        raise ConfigEntryNotReady from error
 
     hass.data[DOMAIN][entry.entry_id] = roku_data
 
@@ -91,3 +92,29 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
+
+
+class RokuEntity(Entity):
+    """Defines a base Roku entity."""
+
+    def __init__(self, *, device_id: str, name: str, roku: Roku) -> None:
+        """Initialize the Roku entity."""
+        self._device_id = device_id
+        self._name = name
+        self.roku = roku
+
+    @property
+    def name(self) -> str:
+        """Return the name of the entity."""
+        return self._name
+
+    @property
+    def device_info(self) -> Dict[str, Any]:
+        """Return device information about this Roku device."""
+        return {
+            ATTR_IDENTIFIERS: {(DOMAIN, self._device_id)},
+            ATTR_NAME: self.name,
+            ATTR_MANUFACTURER: self.roku.device.info.brand,
+            ATTR_MODEL: self.roku.device.info.model_name,
+            ATTR_SOFTWARE_VERSION: self.roku.device.info.version,
+        }
