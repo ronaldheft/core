@@ -21,8 +21,6 @@ from .const import (
     ATTR_MANUFACTURER,
     ATTR_MODEL,
     ATTR_SOFTWARE_VERSION,
-    DATA_CLIENT,
-    DATA_DEVICE_INFO,
     DOMAIN,
 )
 
@@ -58,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Roku from a config entry."""
     try:
         session = async_get_clientsession(hass)
-        roku = Roku(hentry.data[CONF_HOST], session=session)
+        roku = Roku(entry.data[CONF_HOST], session=session)
         await roku.update()
     except RokuError as wrror:
         raise ConfigEntryNotReady from error
