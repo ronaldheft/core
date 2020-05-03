@@ -1,5 +1,8 @@
 """Tests for the Roku component."""
+from socket import gaierror as SocketGIAError
+
 from homeassistant.components.roku.const import DOMAIN
+from homeassistant.components.ssdp import ATTR_SSDP_LOCATION, ATTR_UPNP_FRIENDLY_NAME, ATTR_UPNP_SERIAL 
 from homeassistant.const import CONF_HOST
 from homeassistant.helpers.typing import HomeAssistantType
 
@@ -12,12 +15,31 @@ SSDP_LOCATION = "http://192.168.1.160/"
 UPNP_FRIENDLY_NAME = "My Roku 3"
 UPNP_SERIAL = "1GU48T017973"
 
+MOCK_SSDP_DISCOVERY_INFO = {
+    ATTR_SSDP_LOCATION: SSDP_LOCATION,
+    ATTR_UPNP_FRIENDLY_NAME: UPNP_FRIENDLY_NAME,
+    ATTR_UPNP_SERIAL: UPNP_SERIAL,
+}
+
 
 def mock_connection(
-    aioclient_mock: AiohttpClientMocker, device: str = "roku3", app: str = "roku", host: str = HOST,
+    aioclient_mock: AiohttpClientMocker,
+    device: str = "roku3",
+    app: str = "roku",
+    host: str = HOST,
+    error: bool = False,
+    server_error: bool = False,
 ) -> None:
     """Mock the Roku connection."""
     roku_url = f"http://{host}:8060"
+
+    if error:
+        mock_connection_error()
+        return
+
+    if server_error:
+        mock_connection_server_error()
+        return
 
     aioclient_mock.get(
         f"{roku_url}/query/device-info",
@@ -35,6 +57,44 @@ def mock_connection(
     aioclient_mock.get(
         f"{roku_url}/query/active-app", text=load_fixture(f"roku/active-app-{app}.xml"),
     )
+
+
+def mock_connection_error(
+    aioclient_mock: AiohttpClientMocker,
+    device: str = "roku3",
+    app: str = "roku",
+    host: str = HOST,
+) -> None:
+    """Mock the Roku connection error."""
+    roku_url = f"http://{host}:8060"
+
+    aioclient_mock.get(f"{roku_url}/query/device-info", exc=SocketGIAError)
+
+    apps_fixture = "roku/apps.xml"
+    if device == "rokutv":
+        apps_fixture = "roku/apps-tv.xml"
+
+    aioclient_mock.get(f"{roku_url}/query/apps", exc=SocketGIAError)
+    aioclient_mock.get(f"{roku_url}/query/active-app", exc=SocketGIAError)
+
+
+def mock_connection_server_error(
+    aioclient_mock: AiohttpClientMocker,
+    device: str = "roku3",
+    app: str = "roku",
+    host: str = HOST,
+) -> None:
+    """Mock the Roku connection error."""
+    roku_url = f"http://{host}:8060"
+
+    aioclient_mock.get(f"{roku_url}/query/device-info", status=500)
+
+    apps_fixture = "roku/apps.xml"
+    if device == "rokutv":
+        apps_fixture = "roku/apps-tv.xml"
+
+    aioclient_mock.get(f"{roku_url}/query/apps", status=500)
+    aioclient_mock.get(f"{roku_url}/query/active-app", status=500)
 
 
 async def setup_integration(
