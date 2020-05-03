@@ -63,7 +63,7 @@ async def test_setup(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocke
 
 async def test_idle_setup(hass: HomeAssistantType, aioclient_mock: AiohttpClientMocker) -> None:
     """Test setup with idle device."""
-    await setup_integration(hass, aioclient_mock, power_off=True)
+    await setup_integration(hass, aioclient_mock, power=False)
 
     state = hass.states.get(MAIN_ENTITY_ID)
     assert state.state == STATE_STANDBY
