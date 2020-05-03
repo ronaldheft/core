@@ -27,6 +27,7 @@ def mock_connection(
     device: str = "roku3",
     app: str = "roku",
     host: str = HOST,
+    power: bool = True,
     error: bool = False,
     server_error: bool = False,
 ) -> None:
@@ -41,9 +42,13 @@ def mock_connection(
         mock_connection_server_error()
         return
 
+    info_fixture = f"roku/{device}-device-info.xml"
+    if not power:
+        info_fixture = f"roku/{device}-device-info-power-off.xml"
+
     aioclient_mock.get(
         f"{roku_url}/query/device-info",
-        text=load_fixture(f"roku/{device}-device-info.xml"),
+        text=load_fixture(info_fixture),
     )
 
     apps_fixture = "roku/apps.xml"
@@ -104,6 +109,7 @@ async def setup_integration(
     app: str = "roku",
     host: str = HOST,
     unique_id: str = UPNP_SERIAL,
+    power: bool = True,
     skip_entry_setup: bool = False,
 ) -> MockConfigEntry:
     """Set up the Roku integration in Home Assistant."""
@@ -112,7 +118,7 @@ async def setup_integration(
     entry.add_to_hass(hass)
 
     if not skip_entry_setup:
-        mock_connection(aioclient_mock, device, app=app, host=host)
+        mock_connection(aioclient_mock, device, app=app, host=host, power=power)
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
