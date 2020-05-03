@@ -130,7 +130,7 @@ def mock_connection_server_error(
     app: str = "roku",
     host: str = HOST,
 ) -> None:
-    """Mock the Roku connection error."""
+    """Mock the Roku server error."""
     roku_url = f"http://{host}:8060"
 
     aioclient_mock.get(f"{roku_url}/query/device-info", status=500)
