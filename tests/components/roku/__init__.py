@@ -1,4 +1,5 @@
 """Tests for the Roku component."""
+import re
 from socket import gaierror as SocketGIAError
 
 from homeassistant.components.roku.const import DOMAIN
@@ -66,12 +67,37 @@ def mock_connection(
         apps_fixture = "roku/apps-tv.xml"
 
     aioclient_mock.get(
-        f"{roku_url}/query/apps", text=load_fixture(apps_fixture),
+        f"{roku_url}/query/apps",
+        headers={"Content-Type": "application/xml"},
+        text=load_fixture(apps_fixture),
     )
 
     aioclient_mock.get(
-        f"{roku_url}/query/active-app", text=load_fixture(f"roku/active-app-{app}.xml"),
+        f"{roku_url}/query/active-app",
+        headers={"Content-Type": "application/xml"},
+        text=load_fixture(f"roku/active-app-{app}.xml"),
     )
+
+    aioclient_mock.get(
+        f"{roku_url}/query/tv-active-channel",
+        headers={"Content-Type": "application/xml"},
+        text=load_fixture("roku/rokutv-tv-active-channel.xml"),
+    )
+
+    aioclient_mock.get(
+        f"{roku_url}/query/tv-channels",
+        headers={"Content-Type": "application/xml"},
+        text=load_fixture("roku/rokutv-tv-channels.xml"),
+    )
+
+    aioclient_mock.post(
+        re.compile(f"{roku_url}/keypress/.*"), text="OK",
+    )
+
+    aioclient_mock.post(
+        re.compile(f"{roku_url}/launch/.*"), text="OK",
+    )
+
 
 
 def mock_connection_error(
@@ -91,6 +117,11 @@ def mock_connection_error(
 
     aioclient_mock.get(f"{roku_url}/query/apps", exc=SocketGIAError)
     aioclient_mock.get(f"{roku_url}/query/active-app", exc=SocketGIAError)
+    aioclient_mock.get(f"{roku_url}/query/tv-active-channel", exc=SocketGIAError)
+    aioclient_mock.get(f"{roku_url}/query/tv-channels", exc=SocketGIAError)
+
+    aioclient_mock.post(re.compile(f"{roku_url}/keypress/.*"), exc=SocketGIAError)
+    aioclient_mock.post(re.compile(f"{roku_url}/launch/.*"), exc=SocketGIAError)
 
 
 def mock_connection_server_error(
@@ -110,6 +141,11 @@ def mock_connection_server_error(
 
     aioclient_mock.get(f"{roku_url}/query/apps", status=500)
     aioclient_mock.get(f"{roku_url}/query/active-app", status=500)
+    aioclient_mock.get(f"{roku_url}/query/tv-active-channel", status=500)
+    aioclient_mock.get(f"{roku_url}/query/tv-channels", status=500)
+
+    aioclient_mock.post(re.compile(f"{roku_url}/keypress/.*"), status=500)
+    aioclient_mock.post(re.compile(f"{roku_url}/launch/.*"), status=500)
 
 
 async def setup_integration(
