@@ -69,7 +69,7 @@ class RokuConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> Dict[str, Any]:
         """Handle a flow initialized by the user."""
         if not user_input:
-            return self._shoe_form()
+            return self._show_form()
 
         errors = {}
 
