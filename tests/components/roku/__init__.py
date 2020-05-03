@@ -35,11 +35,21 @@ def mock_connection(
     roku_url = f"http://{host}:8060"
 
     if error:
-        mock_connection_error()
+        mock_connection_error(
+            aioclient_mock=aioclient_mock,
+            device=device,
+            app=app,
+            host=host,
+        )
         return
 
     if server_error:
-        mock_connection_server_error()
+        mock_connection_server_error(
+            aioclient_mock=aioclient_mock,
+            device=device,
+            app=app,
+            host=host,
+        )
         return
 
     info_fixture = f"roku/{device}-device-info.xml"
