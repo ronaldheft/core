@@ -1,6 +1,8 @@
 """Tests for the Roku Media Player platform."""
 from datetime import timedelta
 
+from rokuecp import RokuError
+
 from homeassistant.components.media_player.const import (
     ATTR_INPUT_SOURCE,
     ATTR_MEDIA_CONTENT_ID,
