@@ -411,7 +411,7 @@ def async_cleanup(
 @callback
 def async_setup_cleanup(hass: HomeAssistantType, dev_reg: DeviceRegistry) -> None:
     """Clean up device registry when entities removed."""
-    from . import entity_registry
+    from . import entity_registry  # pylint: disable=import-outside-toplevel
 
     async def cleanup():
         """Cleanup."""
