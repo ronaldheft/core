@@ -101,7 +101,7 @@ class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
         if self.coordinator.data.app.id is None:
             return None
 
-        return self.roku.app_icon_url(self.roku.device.app.id)
+        return self.coordinator.roku.app_icon_url(self.roku.device.app.id)
 
     @property
     def app_name(self) -> str:
@@ -134,7 +134,7 @@ class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
 
     async def async_turn_on(self) -> None:
         """Turn on the Roku."""
-        await self.roku.remote("poweron")
+        await self.coordinator.roku.remote("poweron")
 
     async def async_turn_off(self) -> None:
         """Turn off the Roku."""
