@@ -42,32 +42,31 @@ SUPPORT_ROKU = (
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the Roku config entry."""
     roku = hass.data[DOMAIN][entry.entry_id][DATA_CLIENT]
-    async_add_entities([RokuDevice(roku)], True)
+    unique_id = roku.device.info.serial_number
+    async_add_entities([RokuMediaPlayer(unique_id, roku)], True)
 
 
-class RokuDevice(MediaPlayerEntity):
-    """Representation of a Roku device on the network."""
+class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
+    """Representation of a Roku media player on the network."""
 
-    def __init__(self, roku):
+    def __init__(self, unique_id: str, roku: Roku):
         """Initialize the Roku device."""
+        super().__init__(
+            roku=roku,
+            name=roku.device.info.name,
+            device_id=unique_id,
+        )
+
         self.roku = roku
-        self.ip_address = roku.host
-        self.channels = []
-        self.current_app = None
         self._available = False
-        self._device_info = {}
         self._power_state = "Unknown"
 
-    def update(self):
+    async def async_update(self):
         """Retrieve latest state."""
         try:
-            self._device_info = self.roku.device_info
-            self._power_state = self.roku.power_state
-            self.ip_address = self.roku.host
-            self.channels = self.get_source_list()
-            self.current_app = self.roku.current_app
+            await self.roku.update()
             self._available = True
-        except (RequestsConnectionError, RequestsReadTimeout, RokuException):
+        except RokuError:
             self._available = False
 
     def get_source_list(self):
@@ -78,14 +77,6 @@ class RokuDevice(MediaPlayerEntity):
     def should_poll(self):
         """Device should be polled."""
         return True
-
-    @property
-    def name(self):
-        """Return the name of the device."""
-        if self._device_info.user_device_name:
-            return self._device_info.user_device_name
-
-        return f"Roku {self._device_info.serial_num}"
 
     @property
     def state(self):
@@ -116,22 +107,6 @@ class RokuDevice(MediaPlayerEntity):
     def available(self):
         """Return if able to retrieve information from device or not."""
         return self._available
-
-    @property
-    def unique_id(self):
-        """Return a unique, Home Assistant friendly identifier for this entity."""
-        return self._device_info.serial_num
-
-    @property
-    def device_info(self):
-        """Return device specific attributes."""
-        return {
-            "name": self.name,
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "manufacturer": DEFAULT_MANUFACTURER,
-            "model": self._device_info.model_num,
-            "sw_version": self._device_info.software_version,
-        }
 
     @property
     def media_content_type(self):
@@ -177,13 +152,13 @@ class RokuDevice(MediaPlayerEntity):
         """List of available input sources."""
         return self.channels
 
-    def turn_on(self):
+    async def async_turn_on(self):
         """Turn on the Roku."""
-        self.roku.poweron()
+        await self.roku.remote("poweron")
 
-    def turn_off(self):
+    async def async_turn_off(self):
         """Turn off the Roku."""
-        self.roku.poweroff()
+        await self.roku.remote("poweroff")
 
     def media_play_pause(self):
         """Send play/pause command."""
@@ -226,7 +201,7 @@ class RokuDevice(MediaPlayerEntity):
             return
 
         if self.current_app is not None:
-            self.roku.launch(self.roku["tvinput.dtv"], {"ch": media_id})
+            self.roku.tune(self.roku[media_id)
 
     def select_source(self, source):
         """Select input source."""
