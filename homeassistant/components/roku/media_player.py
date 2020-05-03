@@ -20,7 +20,7 @@ from homeassistant.components.media_player.const import (
 from homeassistant.const import STATE_HOME, STATE_IDLE, STATE_PLAYING, STATE_STANDBY
 
 from . import RokuDataUpdateCoordinator, RokuEntity
-from .const import DEFAULT_MANUFACTURER, DEFAULT_PORT, DOMAIN
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,17 +47,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
     """Representation of a Roku media player on the network."""
 
-    def __init__(self, unique_id: str, roku: Roku) -> None:
+    def __init__(self, unique_id: str, coordinator: RokuDataUpdateCoordinator) -> None:
         """Initialize the Roku device."""
         super().__init__(
-            roku=roku,
+            coordinator=coordinator,
             name=roku.device.info.name,
             device_id=unique_id,
         )
 
     def get_source_list(self) -> List:
         """Get the list of applications to be used as sources."""
-        return ["Home"] + sorted(app.name for app in self.roku.device.apps)
+        return ["Home"] + sorted(app.name for app in self.coordinator.data.apps)
 
     @property
     def state(self) -> str:
@@ -106,7 +106,7 @@ class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
     @property
     def app_name(self) -> str:
         """Name of the current running app."""
-        if self.roku.device.app is not None:
+        if self.coordinator.data.app is not None:
             return self.coordinator.data.app.name
 
         return None
@@ -114,16 +114,16 @@ class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
     @property
     def app_id(self) -> str:
         """Return the ID of the current running app."""
-        if self.roku.device.app is not None:
-            return self.roku.device.app.id
+        if self.coordinator.data.app is not None:
+            return self.coordinator.data.app.id
 
         return None
 
     @property
     def source(self) -> str:
         """Return the current input source."""
-        if self.roku.device.app is not None:
-            return self.roku.device.app.name
+        if self.coordinator.data.app is not None:
+            return self.coordinator.data.app.name
 
         return None
 
@@ -138,31 +138,31 @@ class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
 
     async def async_turn_off(self) -> None:
         """Turn off the Roku."""
-        await self.roku.remote("poweroff")
+        await self.coordinator.roku.remote("poweroff")
 
     async def async_media_play_pause(self) -> None:
         """Send play/pause command."""
-        await self.roku.remote("play")
+        await self.coordinator.roku.remote("play")
 
     async def async_media_previous_track(self) -> None:
         """Send previous track command."""
-        await self.roku.remote("reverse")
+        await self.coordinator.roku.remote("reverse")
 
     async def async_media_next_track(self) -> None:
         """Send next track command."""
-        await self.roku.remote("forward")
+        await self.coordinator.roku.remote("forward")
 
     async def async_mute_volume(self, mute) -> None:
         """Mute the volume."""
-        await self.roku.remote("volume_mute")
+        await self.coordinator.roku.remote("volume_mute")
 
     async def async_volume_up(self) -> None:
         """Volume up media player."""
-        await self.roku.remote("volume_up")
+        await self.coordinator.roku.remote("volume_up")
 
     async def async_volume_down(self) -> None:
         """Volume down media player."""
-        await self.roku.remote("volume_down")
+        await self.coordinator.roku.remote("volume_down")
 
     async def async_play_media(self, media_type: str, media_id: str,  **kwargs) -> None:
         """Tune to channel."""
@@ -174,14 +174,11 @@ class RokuMediaPlayer(RokuEntity, MediaPlayerEntity):
             )
             return
 
-        await self.roku.tune(media_id)
+        await self.coordinator.roku.tune(media_id)
 
     async def async_select_source(self, source: str) -> None:
         """Select input source."""
         if source == "Home":
-            await self.roku.remote("home")
+            await self.coordinator.roku.remote("home")
 
-        if source not in self._channel_ids:
-            return
-
-        await self.roku.launch(self._channel_ids[source])
+        await self.coordinator.roku.launch(self._channel_ids[source])
