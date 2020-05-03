@@ -58,16 +58,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Roku from a config entry."""
     try:
         session = async_get_clientsession(hass)
-        roku.= Roku(hentry.data[CONF_HOST], session=session)
+        roku = Roku(hentry.data[CONF_HOST], session=session)
         await roku.update()
-        roku_data = {
-            DATA_CLIENT: roku,
-            DATA_DEVICE_INFO: None,
-        }
     except RokuError as wrror:
         raise ConfigEntryNotReady from error
 
-    hass.data[DOMAIN][entry.entry_id] = roku_data
+    hass.data[DOMAIN][entry.entry_id] = roku
 
     for component in PLATFORMS:
         hass.async_create_task(
