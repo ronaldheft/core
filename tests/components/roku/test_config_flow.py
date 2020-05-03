@@ -105,7 +105,7 @@ async def test_form_cannot_connect(hass: HomeAssistantType) -> None:
     )
 
     with patch(
-        "homeassistant.components.roku.config_flow.Roku._call",
+        "homeassistant.components.roku.config_flow.Roku.update",
         side_effect=RokuError,
     ) as mock_validate_input:
         result = await hass.config_entries.flow.async_configure(
@@ -127,7 +127,7 @@ async def test_form_unknown_error(hass: HomeAssistantType) -> None:
 
     user_input = {CONF_HOST: HOST}
     with patch(
-        "homeassistant.components.roku.config_flow.Roku._call", side_effect=Exception,
+        "homeassistant.components.roku.config_flow.Roku.update", side_effect=Exception,
     ) as mock_validate_input:
         result = await hass.config_entries.flow.async_configure(
             flow_id=result["flow_id"], user_input=user_input
